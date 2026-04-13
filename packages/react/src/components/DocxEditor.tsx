@@ -243,18 +243,15 @@ export interface DocxEditorProps {
   /** External ProseMirror plugins (from PluginHost) */
   externalPlugins?: import('prosemirror-state').Plugin[];
   /**
-   * When true, external ProseMirror plugins (passed via `externalPlugins`)
-   * manage the document content lifecycle. The editor will not call
-   * `loadDocument()` or `loadDocumentBuffer()` on mount, preventing
-   * the internal useEffect from resetting ProseMirror state.
+   * When true, the editor treats the `document` prop as a schema seed only and
+   * does not load it into ProseMirror on mount. Content is expected to come from
+   * external sources — typically `externalPlugins` such as `ySyncPlugin` from
+   * `y-prosemirror`, but also any code that dispatches transactions directly.
    *
-   * Use this with collaboration plugins like `ySyncPlugin` from `y-prosemirror`
-   * that populate ProseMirror content from an external source (e.g., Y.Doc).
-   *
-   * You must still pass a `document` prop (e.g., `createEmptyDocument()`) to
-   * initialize the ProseMirror schema and editor shell.
+   * You must still pass a `document` prop (e.g., `createEmptyDocument()`) so the
+   * editor can build its schema and render the shell.
    */
-  collaborative?: boolean;
+  externalContent?: boolean;
   /** Callback when editor view is ready (for PluginHost) */
   onEditorViewReady?: (view: import('prosemirror-view').EditorView) => void;
   /** Theme for styling */
@@ -822,7 +819,7 @@ export const DocxEditor = forwardRef<DocxEditorRef, DocxEditorProps>(function Do
     onCommentDelete,
     onCommentReply,
     externalPlugins,
-    collaborative = false,
+    externalContent = false,
     onEditorViewReady,
     onRenderedDomContextReady,
     pluginOverlays,
@@ -839,7 +836,7 @@ export const DocxEditor = forwardRef<DocxEditorRef, DocxEditorProps>(function Do
 ) {
   // State
   const [state, setState] = useState<EditorState>({
-    isLoading: !!documentBuffer && !collaborative,
+    isLoading: !!documentBuffer && !externalContent,
     parseError: null,
     zoom: initialZoom,
     selectionFormatting: {},
@@ -1330,8 +1327,8 @@ export const DocxEditor = forwardRef<DocxEditorRef, DocxEditorProps>(function Do
 
   // React to document/documentBuffer prop changes
   useEffect(() => {
-    // In collaborative mode, external plugins manage content — skip document loading.
-    if (collaborative) return;
+    // External content mode: caller (e.g. ySyncPlugin) populates PM directly — skip the load.
+    if (externalContent) return;
 
     if (!documentBuffer) {
       if (initialDocument) {
@@ -1341,7 +1338,7 @@ export const DocxEditor = forwardRef<DocxEditorRef, DocxEditorProps>(function Do
     }
 
     loadBuffer(documentBuffer);
-  }, [documentBuffer, initialDocument, collaborative]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [documentBuffer, initialDocument, externalContent]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Create/update agent when document changes
   useEffect(() => {

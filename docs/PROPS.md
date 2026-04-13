@@ -10,7 +10,7 @@
 | `mode`                 | `'editing' \| 'suggesting' \| 'viewing'`    | `'editing'` | Editor mode — editing, suggesting (track changes), or viewing (read-only with toolbar) |
 | `onModeChange`         | `(mode: EditorMode) => void`                | —           | Called when the user changes the editing mode                                          |
 | `readOnly`             | `boolean`                                   | `false`     | Read-only preview (hides toolbar, rulers, panel)                                       |
-| `collaborative`        | `boolean`                                   | `false`     | Skip mount-time document loading — external plugins manage content                     |
+| `externalContent`      | `boolean`                                   | `false`     | Treat `document` as schema seed only — content is provided externally (e.g. Yjs)       |
 | `showToolbar`          | `boolean`                                   | `true`      | Show formatting toolbar                                                                |
 | `showRuler`            | `boolean`                                   | `false`     | Show horizontal & vertical rulers                                                      |
 | `rulerUnit`            | `'inch' \| 'cm'`                            | `'inch'`    | Unit for ruler display                                                                 |
@@ -63,9 +63,9 @@ Use `readOnly` for a preview-only viewer. This disables editing, caret, and sele
 <DocxEditor documentBuffer={file} readOnly />
 ```
 
-## Collaborative Editing
+## External Content (Yjs and other live sources)
 
-When using external collaboration plugins (e.g., `ySyncPlugin` from `y-prosemirror`) that manage ProseMirror content from an external source, set `collaborative` to prevent the editor from overwriting plugin-managed content on mount:
+Set `externalContent` when something other than the `document` prop is the source of truth for the editor's content — for example, `ySyncPlugin` from `y-prosemirror`, which populates ProseMirror from a Y.Doc. The `document` prop is still required as a schema seed, but the editor will not load it on mount.
 
 ```tsx
 import { useMemo } from 'react';
@@ -76,8 +76,8 @@ function CollaborativeEditor({ ydoc }) {
   const fragment = ydoc.getXmlFragment('prosemirror');
   const plugins = useMemo(() => [ySyncPlugin(fragment), yUndoPlugin()], [fragment]);
 
-  return <DocxEditor document={createEmptyDocument()} externalPlugins={plugins} collaborative />;
+  return <DocxEditor document={createEmptyDocument()} externalPlugins={plugins} externalContent />;
 }
 ```
 
-**Why this is needed:** Without `collaborative`, DocxEditor's internal `useEffect` calls `loadDocument()` on mount, which resets ProseMirror state. When `ySyncPlugin` has already populated ProseMirror with content from Y.Doc, this reset destroys that content and syncs the empty state back to Y.Doc.
+**Why this is needed:** Without `externalContent`, DocxEditor's mount-time `useEffect` calls `loadDocument()`, which resets ProseMirror state. If `ySyncPlugin` has already populated ProseMirror with Y.Doc content, that reset wipes it — and then ySync syncs the empty state back into Y.Doc, corrupting the shared document for every connected client.
