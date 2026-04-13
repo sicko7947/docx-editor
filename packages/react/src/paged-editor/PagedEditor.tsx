@@ -2215,9 +2215,6 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
             cache.paginatorSnapshotAtBlock = newLayout.paginatorSnapshots;
           }
 
-          // Signal layout is complete — only after we actually painted
-          syncCoordinator.onLayoutComplete(currentEpoch);
-
           const totalTime = performance.now() - pipelineStart;
           if (totalTime > 2000) {
             console.warn(
@@ -2227,6 +2224,10 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
           }
         } catch (error) {
           console.error('[PagedEditor] Layout pipeline error:', error);
+        } finally {
+          // Signal layout is complete — must fire even on exception to unblock
+          // LayoutSelectionGate (prevents stuck layoutUpdating=true state)
+          syncCoordinator.onLayoutComplete(currentEpoch);
         }
       },
       [
